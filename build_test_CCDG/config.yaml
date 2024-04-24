@@ -1,0 +1,4 @@
+outputFolder:  output/
+tempFolder: /scratch/mshokrof/
+kSize: 31
+batchSize: 16
