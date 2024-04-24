@@ -1,0 +1,6 @@
+name: genotyping_benchmark_platypus
+channels:
+ - bioconda
+ - conda-forge
+dependencies:
+ - platypus-variant

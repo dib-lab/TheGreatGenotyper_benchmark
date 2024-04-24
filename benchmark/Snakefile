@@ -1,0 +1,97 @@
+configfile:'config.json'
+
+include: "prepare-reads.smk"
+include: "genotyping.smk"
+
+### Parameters ###
+
+# input data for genotyping
+
+samples=config['data']['samples']
+print(samples)
+# parameters
+chromosomes=config['parameters']['chromosomes']
+outname=config['parameters']['outname']
+outname_reads=config['parameters']['outname_reads']
+downsampling=[30,20,10,5]
+
+#variants=['snp', 'small-deletion', 'small-insertion', 'midsize-deletion', 'midsize-insertion', 'large-deletion', 'large-insertion']
+
+rule all:
+	input:
+#	       "results/HG00731/NA12878/evaluation/graphs.tar.gz",
+#	       "results/HG00731/ASSM-NA12878/evaluation/graphs.tar.gz",
+#	       "results/HG00731/pangenome/evaluation/graphs.tar.gz",
+	       "results/HG00731/meduim-NA12878-ASSM/evaluation/graphs.tar.gz",
+#	       "results/HG01891/meduim-NA12878-ASSM/evaluation/graphs.tar.gz"
+#	       "results/HG00512/meduim-NA12878-ASSM/evaluation/graphs.tar.gz",
+#
+#	       "results/HG00731/short/evaluation/graphs.tar.gz",
+	       
+               # expand("{results}/{sample}/evaluation/{metric}/{mode}/{run_mode}_{regions}_{metric}.pdf",
+	       # 		results=outname,
+	       # 		sample=["LRHG00731"],
+	       # 		mode="graph",
+	       # 		regions= ["repeats", "nonrep"], # ["repeats-complex", "repeats-simple", "nonrep-complex", "nonrep-simple"],
+	       # 		run_mode=["genotyping-biallelic"],
+	       # 		metric=["precision-recall-typable", "concordance", "fscore"]
+	       # 	),
+#		expand("{results}/{sample}/raw/{sample}-{fraction}.fastq", results=outname_reads, sample=samples, fraction=downsampling),
+#		expand("{results}/{sample}/aligned/{sample}-{fraction}.chr{chrom}.bam", results=outname_reads, sample=samples, fraction=downsampling, chrom=chromosomes),
+
+		# input data
+#		expand("{results}/{sample}/reference-panel/{sample}-chr{chrom}.vcf",
+#			results=outname,
+#			sample=samples,
+#			chrom=chromosomes),
+		# plots
+		# plots using graph as ground truth
+		# expand("{results}/{sample}/evaluation/{metric}/{mode}/{run_mode}_{regions}_{metric}.pdf",
+		# 	results=outname,
+		# 	sample=["HG00731","NA12878", "NA24385"],
+		# 	mode="graph",
+		# 	regions= ["repeats", "nonrep"], # ["repeats-complex", "repeats-simple", "nonrep-complex", "nonrep-simple"],
+		# 	run_mode=["genotyping-biallelic"],
+		# 	metric=["precision-recall-typable", "concordance", "fscore"]
+		# ),
+		
+		# # plots using GIAB-small as ground truth
+		# expand("{results}/{sample}/evaluation/{metric}/{mode}/{run_mode}_{regions}_{metric}.pdf",
+		# 	results=outname,
+		# 	sample=["NA12878"],
+		# 	mode=["external"],
+		# 	regions=["external"],
+		# 	run_mode=["genotyping-biallelic"],
+		# 	metric=["precision-recall-typable", "precision-recall-all", "concordance", "fscore"]
+		# ),
+		# # plots using GIAB-SV as ground truth
+		# expand("{results}/{sample}/evaluation/{metric}/{mode}/{run_mode}_{regions}_{metric}.pdf",
+		# 	results=outname,
+		# 	sample=["NA24385"],
+		# 	mode=["external"],
+		# 	regions=["external", "repeats", "nonrep"],
+		# 	run_mode=["genotyping-biallelic"],
+		# 	metric=["precision-recall-typable", "concordance", "fscore"]
+		# ),
+
+		# # plots using syndip as ground truth
+		# expand("{results}/{sample}/evaluation/{metric}/{mode}/{run_mode}_{regions}_{metric}.pdf",
+		# 	results=outname,
+		# 	sample=["syndip"],
+		# 	mode=["external"],
+		# 	regions=["external", "repeats", "nonrep"],
+		# 	run_mode=["genotyping-biallelic"],
+		# 	metric=["precision-recall-typable", "precision-recall-all", "concordance", "fscore"]
+		# )
+
+
+
+rule gather_plots:
+        input:
+             expand("{results}/{{sample}}/{{sample_set}}/evaluation/{metric}/{mode}/{run_mode}_{regions}_{metric}.pdf", results=outname, mode="graph", regions= ["repeats", "nonrep"], run_mode=["genotyping-biallelic"], metric=["precision-recall-typable", "concordance", "fscore"] ),
+	     expand("{results}/{{sample}}/{{sample_set}}/evaluation/fscore/graph/genotyping-biallelic_{regions}_fscore_{coverage}.pdf", results=outname , regions= ["repeats", "nonrep"], coverage= downsampling),
+	     expand("{results}/{{sample}}/{{sample_set}}/evaluation/newFscore/graph/genotyping-biallelic_fscore_{coverage}.png", results=outname , regions= ["repeats", "nonrep"], coverage= downsampling)
+	     
+	
+        output: "results/{sample}/{sample_set}/evaluation/graphs.tar.gz"
+        shell: "mkdir graphs.$$ && cp {input} graphs.$$ && tar -czvf {output} graphs.$$/* "
