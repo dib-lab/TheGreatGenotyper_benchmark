@@ -39,6 +39,6 @@ wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR324/004/ERR3241754/ERR3241754_2.fastq
 
 
 # Run The Benchmarking workflow
-The benchmarking snakemake workflow is in benchmark subfolder. We first need to edit config.json to 
+The benchmarking snakemake workflow is in benchmark subfolder. We first need to edit config.json to configure the pathes of the input and output data. run the workflow using 'snakemake -j8 --use-conda'
 
 
