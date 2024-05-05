@@ -2,7 +2,7 @@ configfile: "config.json"
 
 input_reference=config['data']['reference']
 reference_version=config['data']['reference_version']
-outname=config['parameters']['outname_reads']
+
 
 prefix = "" if "37" in reference_version or "19" in reference_version else "chr"
 
@@ -81,7 +81,7 @@ rule bwa_index:
 	output:
 		input_reference + ".ann"
 	log:
-		"{results}/reference-indexing.log".format(results=outname)
+		input_reference + ".bwaindex.log"
 	conda:
 		'../env/genotyping.yml'
 	resources:

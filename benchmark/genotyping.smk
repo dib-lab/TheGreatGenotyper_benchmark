@@ -5,7 +5,14 @@ tempFolder= config['parameters']['temp']
 ### Parameters ###
 
 # input data for genotyping
-samples = config['data']['samples']
+samples = []
+for sample,data in config['data'].items():
+    if isinstance(data, dict):
+        samples.append(sample)
+        samples.extend(data['sample'])
+
+
+
 input_reference = config['data']['reference']
 reference_version = config['data']['reference_version']
 repeats_bed = config['data']['repeats']
@@ -13,23 +20,27 @@ complex_bed = config['data']['complex']
 
 # programs
 pangenie = config['programs']['pangenie']
-platypus = config['programs']['platypus']
-kmc = config['programs']['kmc']
-bayestyper = config['programs']['bayestyper']
-bayestyper_tools = config['programs']['bayestyper_tools']
+#platypus = config['programs']['platypus']
+# kmc = config['programs']['kmc']
+# bayestyper = config['programs']['bayestyper']
+# bayestyper_tools = config['programs']['bayestyper_tools']
 paragraph = config['programs']['paragraph']
 graphtyper = config['programs']['graphtyper']
+GG = config['programs']['TheGreatGenotyper']
+beagle= config['programs']['beagle']
+beagleMap= config['programs']['beagleMap']
 gatk = 'gatk'
 picard = 'picard'
 
 # parameters
 chromosomes = config['parameters']['chromosomes']
-outname = config['parameters']['outname']
-outname_reads = config['parameters']['outname_reads']
-downsampling = [5, 10, 20, 30]
+# outname = config['parameters']['outname']
+# outname_reads = config['parameters']['outname_reads']
+#downsampling = [5, 10, 20, 30]
 downsampling = [30]
-bayestyper_reference_canon = config['parameters']['bayestyper_reference_canon']
-bayestyper_reference_decoy = config['parameters']['bayestyper_reference_decoy']
+GG_INDEX_Prefix=  config['parameters']['GG_INDEX']
+#bayestyper_reference_canon = config['parameters']['bayestyper_reference_canon']
+#bayestyper_reference_decoy = config['parameters']['bayestyper_reference_decoy']
 #other_methods=['platypus', 'bayestyper', 'gatk', 'paragraph', 'graphtyper']
 other_methods = ['gatk', 'paragraph', 'graphtyper', "TheGreatGenotyper-kmersOnly","TheGreatGenotyper-SecondPassHMM", "TheGreatGenotyper-HMM" ]
 
@@ -587,31 +598,31 @@ rule merge_vcfs:
 ##############################################################################
 
 
-# run kmc to count kmers
-rule run_kmc:
-    input:
-        outname_reads + "/{sample}/raw/{sample}-{fraction, [0-9.]+}.fastq",
-    output:
-        suf="{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/{sample}.kmc_suf",
-        pre="{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/{sample}.kmc_pre",
-    #        tmp=temp("{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/tmp-{sample}/")
-    log:
-        "{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/{sample}_kmc.log"
-    params:
-        out_prefix="{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/{sample}",
-        tmp="{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/tmp-{sample}/"
-    threads: 40
-    conda:
-        "env.yaml"
-    resources:
-        mem_mb=15000,
-        runtime_hrs=1,
-        runtime_min=59,
-        runtime=60,
-        meduim=1,
-        partition =  lambda wildcards: getMeduimPartition(f"{wildcards.sample}")
-    shell:
-        "/usr/bin/time -v {kmc} -k55 -t{threads} -ci1 {input} {params.out_prefix} {params.tmp} > {log} 2>&1"
+# # run kmc to count kmers
+# rule run_kmc:
+#     input:
+#         outname_reads + "/{sample}/raw/{sample}-{fraction, [0-9.]+}.fastq",
+#     output:
+#         suf="{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/{sample}.kmc_suf",
+#         pre="{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/{sample}.kmc_pre",
+#     #        tmp=temp("{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/tmp-{sample}/")
+#     log:
+#         "{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/{sample}_kmc.log"
+#     params:
+#         out_prefix="{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/{sample}",
+#         tmp="{results}/{sample}/{sample_test}/bayestyper/{sample}_{fraction}/kmers/tmp-{sample}/"
+#     threads: 40
+#     conda:
+#         "env.yaml"
+#     resources:
+#         mem_mb=15000,
+#         runtime_hrs=1,
+#         runtime_min=59,
+#         runtime=60,
+#         meduim=1,
+#         partition =  lambda wildcards: getMeduimPartition(f"{wildcards.sample}")
+#     shell:
+#         "/usr/bin/time -v {kmc} -k55 -t{threads} -ci1 {input} {params.out_prefix} {params.tmp} > {log} 2>&1"
 
 # create bloomfilter
 rule create_bloomfilter:
@@ -830,28 +841,19 @@ rule unphase_vcf:
         """
     bgzip -c {input} > tmp.$$.vcf.gz
     tabix -p vcf tmp.$$.vcf.gz
-    python ~/TheGreatGenotyper/scripts/unphase.py tmp.$$.vcf.gz {output}
+    python ../scripts/unphase.py tmp.$$.vcf.gz {output}
     rm  tmp.$$.vcf.gz    
     """
 
 
 
-def getGraphs(wildcards):
-    return "/home/mshokrof/TheGreatGenotyper/index_chunks/chunk."
-    if wildcards.index == "test":
-       return config['data'][wildcards.sample]['metagraph_index']+ "graph"
-    elif wildcards.index == "population":
-       return config["parameters"]["population"]
-    else:
-       #print("Error in get graphs")
-       #print(wildcards.index)
-       raise ValueError("Check your input")
+
     
     
         
 rule TheGreatGenotyperkmersOnly:
     input:
-        graphFolders      = "/home/mshokrof/genotyping-experiments/SV_genotyping/index_chunks_plus_test/chunk.{chunk}",    
+        graphFolders      = GG_INDEX_Prefix+"chunk.{chunk}",    
         ref        = input_reference,
         vcf        = "{results}/{sample}/{sample_test}/reference-panel/{sample}-all.unphased.vcf",
     output:
@@ -871,7 +873,7 @@ rule TheGreatGenotyperkmersOnly:
     shell:
         r"""
             mkdir -p {resources.tmpdir}
-            /home/mshokrof/TheGreatGenotyper/build6/pangenie/src/TheGreatGenotyper -f  -a   -g  -i {input.graphFolders}  -j {threads} -t {threads} -r {input.ref}  -y  {resources.tmpdir}emissions -v {input.vcf} -o -  2> {log} | bgzip > {resources.tmpdir}/tmp.vcf.gz 
+            {GG} -f  -a   -g  -i {input.graphFolders}  -j {threads} -t {threads} -r {input.ref}  -y  {resources.tmpdir}emissions -v {input.vcf} -o -  2> {log} | bgzip > {resources.tmpdir}/tmp.vcf.gz 
             mv {resources.tmpdir}/tmp.vcf.gz {output.merged_vcf}
             tabix -p vcf {output.merged_vcf}
             rm -rf {resources.tmpdir}
@@ -903,10 +905,10 @@ rule rephase_vcf:
             mkdir -p {resources.tmpdir}
             bcftools view --force-samples  -s ^NA12878 {input.panel}  2> {log}|bgzip > {resources.tmpdir}panel.vcf.gz
             tabix -p vcf {resources.tmpdir}panel.vcf.gz
-            java -Xmx70G -jar beagle.22Jul22.46e.jar gt={resources.tmpdir}panel.vcf.gz out={resources.tmpdir}tmp2.$$ nthreads={threads}  map=plink.autsomal.map  >> {log}
+            java -Xmx70G -jar {beagle} gt={resources.tmpdir}panel.vcf.gz out={resources.tmpdir}tmp2.$$ nthreads={threads}  map={beagleMap}  >> {log}
             tabix -p vcf {resources.tmpdir}tmp2.$$.vcf.gz
             bcftools view -Oz -o {resources.tmpdir}tmp.input.$$.vcf.gz {input.vcf}
-            java -Xmx70G -jar beagle.22Jul22.46e.jar gt={resources.tmpdir}tmp.input.$$.vcf.gz  ref={resources.tmpdir}tmp2.$$.vcf.gz out={params.prefix} nthreads={threads}  map=plink.autsomal.map  >> {log}
+            java -Xmx70G -jar {beagle} gt={resources.tmpdir}tmp.input.$$.vcf.gz  ref={resources.tmpdir}tmp2.$$.vcf.gz out={params.prefix} nthreads={threads}  map={beagleMap}  >> {log}
             gzip -d {params.prefix}.vcf.gz
             rm -rf {resources.tmpdir}    
         """
@@ -918,7 +920,7 @@ rule rephase_vcf:
 
 rule TheGreatGenotyperHMM:
     input:
-        graphFolders      ="/home/mshokrof/genotyping-experiments/SV_genotyping/index_chunks_plus_test/chunk.{chunk}",    
+        graphFolders      =GG_INDEX_Prefix+"chunk.{chunk}",    
         ref        = input_reference,
         vcf        = "{results}/{sample}/{sample_test}/reference-panel/{sample}-all.vcf",
     output:
@@ -938,7 +940,7 @@ rule TheGreatGenotyperHMM:
     shell:
         r"""
             mkdir -p {resources.tmpdir}
-            /home/mshokrof/TheGreatGenotyper/build6/pangenie/src/TheGreatGenotyper  -f  -g  -i {input.graphFolders}  -j {threads} -t {threads} -r {input.ref}  -y   {resources.tmpdir}emissions.TheGreatGenotyperHMM -v {input.vcf} -o -  2> {log} | bgzip > {resources.tmpdir}/tmp.vcf.gz
+            {GG}  -f  -g  -i {input.graphFolders}  -j {threads} -t {threads} -r {input.ref}  -y   {resources.tmpdir}emissions.TheGreatGenotyperHMM -v {input.vcf} -o -  2> {log} | bgzip > {resources.tmpdir}/tmp.vcf.gz
             mv {resources.tmpdir}/tmp.vcf.gz {output.merged_vcf}
             tabix -p vcf {output.merged_vcf}
             rm -rf {resources.tmpdir}
@@ -947,7 +949,7 @@ rule TheGreatGenotyperHMM:
 
 rule TheGreatGenotyperSecondPassHMM:
     input:
-        graphFolders ="/home/mshokrof/genotyping-experiments/SV_genotyping/index_chunks_plus_test/chunk.{chunk}",    
+        graphFolders = GG_INDEX_Prefix+"chunk.{chunk}",    
         ref        = input_reference,
         vcf        = "{results}/{sample}/{sample_test}/reference-panel/{sample}-all.rephased.vcf",
     output:
@@ -967,7 +969,7 @@ rule TheGreatGenotyperSecondPassHMM:
     shell:
         r"""
             mkdir -p {resources.tmpdir}
-            /home/mshokrof/TheGreatGenotyper/build6/pangenie/src/TheGreatGenotyper   -f  -g  -i {input.graphFolders}  -j {threads} -t {threads} -r {input.ref}  -y  {resources.tmpdir}emissions.TheGreatGenotyperSecondPassHMM -v {input.vcf} -o -  2> {log} | bgzip > {resources.tmpdir}/tmp.vcf.gz
+            {GG}   -f  -g  -i {input.graphFolders}  -j {threads} -t {threads} -r {input.ref}  -y  {resources.tmpdir}emissions.TheGreatGenotyperSecondPassHMM -v {input.vcf} -o -  2> {log} | bgzip > {resources.tmpdir}/tmp.vcf.gz
             mv {resources.tmpdir}/tmp.vcf.gz {output.merged_vcf}
             tabix -p vcf {output.merged_vcf}
             rm -rf {resources.tmpdir}
@@ -1035,10 +1037,10 @@ rule PreProcessPanel:
            # bcftools view -S {resources.tmp}samples.het0.2.txt {resources.tmp}tmp.$$.vcf.gz 2>> {log} |bgzip -c > {resources.tmp}tmp.2.$$.vcf.gz
            # tabix -p vcf {resources.tmp}tmp.2.$$.vcf.gz
            # /home/mshokrof/miniconda3/envs/cattle_sv/bin/plink2 --vcf {resources.tmp}tmp.2.$$.vcf.gz  --hwe 1e-50 'midp' --mind 0.2  --recode vcf --vcf-half-call missing  --output-chr 'chrM' --out {resources.tmp}tmp.3.$$ 2>> {log}
-            java -Xmx70G -jar beagle.22Jul22.46e.jar gt={resources.tmp}tmp.$$.vcf.gz    out={params.out_prefix} nthreads={threads}  map=plink.autsomal.map &> {log}
+            java -Xmx70G -jar {beagle} gt={resources.tmp}tmp.$$.vcf.gz    out={params.out_prefix} nthreads={threads}  map={beagleMap} &> {log}
             rm -rf {resources.tmp}
           """
-
+ruleorder: pangenie > FilterAndBeagle
 rule FilterAndBeagle:
     input:
         population = "{results}/{sample}/{sample_test}/{tool}/population.vcf.gz" ,
@@ -1052,6 +1054,8 @@ rule FilterAndBeagle:
     params:
         out_prefix="{results}/{sample}/{sample_test}/{tool}/{sample}_{fraction}_{tool}_genotyping",
         sample_name= "{sample}_{fraction}_TheGreatGenotyper"
+    wildcard_constraints:
+        tool="TheGreatGenotyper-SecondPassHMM|TheGreatGenotyper-kmersOnly|TheGreatGenotyper-HMM"
     resources:
         mem_mb=80*1024,
         cores=32,
@@ -1066,67 +1070,12 @@ rule FilterAndBeagle:
             mkdir -p {resources.tmp}
             bcftools view -s {wildcards.sample}_{wildcards.fraction}_TheGreatGenotyper {input.population} 2> {log} |bgzip -c > {resources.tmp}tmp.$$.vcf.gz
             tabix -p vcf {resources.tmp}tmp.$$.vcf.gz 
-            java -Xmx70G -jar beagle.22Jul22.46e.jar gt={resources.tmp}tmp.$$.vcf.gz ref={input.reference_panel}    out={resources.tmp}tmp4.$$ nthreads={threads}  map=plink.autsomal.map 2>&1 >> {log}
+            java -Xmx70G -jar {beagle} gt={resources.tmp}tmp.$$.vcf.gz ref={input.reference_panel}    out={resources.tmp}tmp4.$$ nthreads={threads}  map={beagleMap} 2>&1 >> {log}
             tabix -p vcf {resources.tmp}tmp4.$$.vcf.gz
-            python ~/TheGreatGenotyper/scripts/unphase.py {resources.tmp}tmp4.$$.vcf.gz {output} 2>> {log}
+            python ../scripts/unphase.py {resources.tmp}tmp4.$$.vcf.gz {output} 2>> {log}
             rm -rf {resources.tmp}
           """
 
-
-# rule FilterAndBeagle:
-#     input:
-#         vcf        = "{results}/{sample}/{sample_test}/{tool}/test.vcf.gz",
-#     population        = "{results}/{sample}/{sample_test}/{tool}/population.vcf.gz"
-#     output:
-#         "{results}/{sample}/{sample_test}/{tool}/{sample}_{fraction}_{tool}_genotyping.vcf" 
-#     log:
-#         "{results}/{sample}/{sample_test}/{tool}/{sample}_{fraction}_{tool}.log"
-#     threads: 32
-#     retries: 1
-#     params:
-#         out_prefix="{results}/{sample}/{sample_test}/{tool}/{sample}_{fraction}_{tool}_genotyping",
-#     sample_name= "{sample}_{fraction}_TheGreatGenotyper"
-#     resources:
-#         mem_mb=20000,
-#         cores=32,
-#         nodes = 1,
-#         meduim=1,
-#         runtime = 60 * 48,
-#         partition =  lambda wildcards: getMeduimPartition(f"{wildcards.sample}"),
-#         #tmp= lambda wildcards: "%sgenotyper_%s_%s/"%(tempFolder,f"{wildcards.sample}",f"{wildcards.graph}")
-#     shell:
-#         r"""
-#         # #python ~/TheGreatGenotyper/scripts/maskLowQualGT.py  {input} 100 tmp.$$.vcf
-#     # java -Xmx20G -jar beagle.22Jul22.46e.jar gt={input.vcf}  ref=results/HG00731/meduim-NA12878-ASSM/reference-panel/population.kmersonly.vcf_varMask.vcf.gz.phased.vcf.gz out={params.out_prefix} nthreads={threads}  map=plink.genome.map &> {log}
-#     # #java -Xmx20G -jar beagle.22Jul22.46e.jar gt=tmp.$$.vcf  ref=pangenome.vcf.gz out={params.out_prefix} nthreads={threads}  map=plink.genome.map &> {log}
-#     # gzip -d {params.out_prefix}.vcf.gz
-    
-# #
-
-#     bcftools view -s {params.sample_name} {input.vcf} |bgzip -c > tmp.$$.vcf.gz
-#     tabix -p vcf tmp.$$.vcf.gz
-#     bcftools merge tmp.$$.vcf.gz {input.population}|bcftools +fill-tags    -Ov  -- -t all > tmp2.$$.vcf
-#     python ~/TheGreatGenotyper/scripts/maskLowQualGT2.py tmp2.$$.vcf tmp3.$$.vcf.gz  
-#     tabix -p vcf tmp3.$$.vcf.gz
-#     java -Xmx20G -jar beagle.22Jul22.46e.jar gt=tmp3.$$.vcf.gz     out=tmp4.$$ nthreads={threads}  map=plink.genome.map 
-#     tabix -p vcf tmp4.$$.vcf.gz
-#     bcftools view -s {params.sample_name} tmp4.$$.vcf.gz > tmp5.$$.vcf
-#     python ~/TheGreatGenotyper/scripts/unphase.py tmp5.$$.vcf {output}
-# #    rm tmp*.$$.*
-# ##
-
-#     # sampleName=$(grep -P "#CHROM" {input.vcf} |cut -f 10)
-#     # bgzip  -c {input.vcf} > tmp.input.$$.vcf.gz
-#     # tabix -p vcf tmp.input.$$.vcf.gz
-#     # bcftools merge tmp.input.$$.vcf.gz results/HG00731/meduim-NA12878-ASSM/reference-panel/population.vcf.gz  |bgzip > pop.$$.vcf.gz
-#     # tabix -p vcf pop.$$.vcf.gz                                      
-#     # python ~/TheGreatGenotyper/scripts/maskLowQualGT2.py pop.$$.vcf.gz pop.$$.varMask.vcf.gz       
-#            # java -Xmx20G -jar beagle.22Jul22.46e.jar gt=pop.$$.varMask.vcf.gz     out=pop.$$.varMask.imputed nthreads=32  map=plink.genome.map
-#            # tabix -p vcf pop.$$.varMask.imputed.vcf.gz
-#           # bcftools view -s $sampleName  pop.$$.varMask.imputed.vcf.gz > tmp.$$.vcf
-#            # python ~/TheGreatGenotyper/scripts/unphase.py tmp.$$.vcf {output}
-#     # rm -f tmp.input.$$.vcf.gz* tmp.$$.vcf pop.$$.vcf.gz* pop.$$.varMask.vcf.gz*
-#     """
 
 def getBAM(wildcards):
     return config['data'][wildcards.sample]["mapping_prefix"] + wildcards.sample + '-' +\
@@ -1305,45 +1254,45 @@ rule convert_genotyping_to_biallelic:
         """
 
 
-# normalize and annotate discovery sets and assign variant IDs
-rule convert_discovery_to_biallelic:
-    input:
-        callset="{results}/{sample}/{sample_test}/{method}/{sample}_{fraction}_{method}_discovery.vcf",
-        biallelic=config['data']['full_callset'],
-        reference=input_reference
-    output:
-        "{results}/{sample}/{sample_test}/{method}/{sample}_{fraction}_{method}_discovery-biallelic.vcf.gz"
-    conda:
-        "../env/genotyping.yml"
-    resources:
-        mem_mb=20000,
-        runtime_hrs=2,
-        runtime=2 * 60
-    shell:
-        """
-        cat {input.callset} | python3 ../scripts/annotate.py <(gzip -dc {input.biallelic}) | bgzip > {output}
-#        tabix -p vcf {output}
-        """
+# # normalize and annotate discovery sets and assign variant IDs
+# rule convert_discovery_to_biallelic:
+#     input:
+#         callset="{results}/{sample}/{sample_test}/{method}/{sample}_{fraction}_{method}_discovery.vcf",
+#         biallelic=config['data']['full_callset'],
+#         reference=input_reference
+#     output:
+#         "{results}/{sample}/{sample_test}/{method}/{sample}_{fraction}_{method}_discovery-biallelic.vcf.gz"
+#     conda:
+#         "../env/genotyping.yml"
+#     resources:
+#         mem_mb=20000,
+#         runtime_hrs=2,
+#         runtime=2 * 60
+#     shell:
+#         """
+#         cat {input.callset} | python3 ../scripts/annotate.py <(gzip -dc {input.biallelic}) | bgzip > {output}
+# #        tabix -p vcf {output}
+#         """
 
-# prepare external ground truth sets
-rule prepare_ground_truth:
-    input:
-        callset=lambda wildcards: config['data'][wildcards.sample]['external'],
-        truth=config['data']['full_callset'],
-        reference=input_reference
-    output:
-        vcf="{results}/{sample}/{sample_test}/external-truth/{sample}-truth.vcf.gz"
-    conda:
-        "../env/genotyping.yml"
-    resources:
-        mem_mb=20000,
-        runtime_hrs=2,
-        runtime=2 * 60
-    shell:
-        """
-        bcftools norm -f {input.reference} -m -any {input.callset} | bcftools sort | python3 ../scripts/annotate.py <(gzip -dc {input.truth}) | bgzip > {output.vcf}
-        tabix -p vcf {output}
-        """
+# # prepare external ground truth sets
+# rule prepare_ground_truth:
+#     input:
+#         callset=lambda wildcards: config['data'][wildcards.sample]['external'],
+#         truth=config['data']['full_callset'],
+#         reference=input_reference
+#     output:
+#         vcf="{results}/{sample}/{sample_test}/external-truth/{sample}-truth.vcf.gz"
+#     conda:
+#         "../env/genotyping.yml"
+#     resources:
+#         mem_mb=20000,
+#         runtime_hrs=2,
+#         runtime=2 * 60
+#     shell:
+#         """
+#         bcftools norm -f {input.reference} -m -any {input.callset} | bcftools sort | python3 ../scripts/annotate.py <(gzip -dc {input.truth}) | bgzip > {output.vcf}
+#         tabix -p vcf {output}
+#         """
 print(samples)
 # determine untypable IDs
 rule remove_untypable:
@@ -1413,6 +1362,8 @@ rule rtg_format:
 # precision-recall
 rule vcfeval:
     input:
+    #results/HG00731/meduim-NA12878-ASSM/evaluation/precision-recall-typable/graph/TheGreatGenotyper-HMM-genotyping-biallelic/coverage-5_repeats-complex_small-deletion/qual_0/summary.txt
+    #results/HG00731/meduim-NA12878-ASSM/evaluation/HG00731_5_{method}_{run_mode}-{variantset}-{vartype}-{mode}.vcf.gz
         callset="{results}/{sample}/{sample_test}/{method}/{sample}_{fraction}_{method}_{run_mode}-{variantset}-{vartype}-{mode}.vcf.gz",
         callset_tbi="{results}/{sample}/{sample_test}/{method}/{sample}_{fraction}_{method}_{run_mode}-{variantset}-{vartype}-{mode}.vcf.gz.tbi",
         baseline=lambda wildcards: "{results}/{sample}/{sample_test}/external-truth/{sample}-truth-{variantset}-{vartype}-{mode}.vcf.gz" if wildcards.mode == "external" else
@@ -1424,13 +1375,14 @@ rule vcfeval:
         sdf="{results}/evaluation/SDF"
     output:
         summary="{results}/{sample}/{sample_test}/evaluation/precision-recall-{variantset}/{mode}/{method}-{run_mode}/coverage-{fraction}_{regions}_{vartype}/qual_0/summary.txt"
+      #  results/HG00731/meduim-NA12878-ASSM/evaluation/precision-recall-typable/graph/pangenie-genotyping-biallelic/coverage-5_repeats-complex_small-deletion/qual_0/summary.txt
     conda:
         "../env/genotyping.yml"
     wildcard_constraints:
         sample="|".join(samples),
         mode="external|graph",
         run_mode="genotyping-biallelic|discovery-biallelic",
-        fraction="|".join([str(f) for f in downsampling]),
+       # fraction="|".join([str(f) for f in downsampling]),
         regions="repeats-complex|repeats-simple|nonrep-complex|nonrep-simple|external",
         vartype="|".join(variants),
         variantset="typable|all"
@@ -1445,7 +1397,7 @@ rule vcfeval:
         runtime=20
     shell:
         """
-    rm -rf {params.tmp}
+        rm -rf {params.tmp}
         rtg vcfeval -b {input.baseline} -c {input.callset} -t {input.sdf} -o {params.tmp} --ref-overlap --evaluation-regions {input.regions} {params.which} --Xmax-length 30000 > {output.summary}.tmp
         mv {params.tmp}/* {params.outname}/
         mv {output.summary}.tmp {output.summary}
@@ -1475,7 +1427,7 @@ rule vcfeval_cutoff:
         sample="|".join(samples),
         mode="external|graph",
         run_mode="genotyping-biallelic|discovery-biallelic",
-        fraction="|".join([str(f) for f in downsampling]),
+       # fraction="|".join([str(f) for f in downsampling]),
         regions="repeats-complex|repeats-simple|nonrep-complex|nonrep-simple|external",
         vartype="|".join(variants),
         qual="200",
@@ -1550,7 +1502,7 @@ rule genotype_concordances:
         sample="|".join(samples),
         mode="external|graph",
         run_mode="genotyping-biallelic|discovery-biallelic",
-        fraction="|".join([str(f) for f in downsampling]),
+    #    fraction="|".join([str(f) for f in downsampling]),
         regions="repeats-complex|repeats-simple|nonrep-complex|nonrep-simple|external",
         vartype="|".join(variants),
         qual="0|200"
@@ -1601,19 +1553,19 @@ def plot_input(wildcards):
                             metric=metric
                         )
                         )
-                    output.append("{results}/{sample}/{sample_test}/evaluation/{metric}/{mode}/{method}-genotyping-biallelic/coverage-{fraction}_{regions}_{vartype}/qual_{qual}/summary.txt".format(
-                        results=wildcards.results,
-                        sample_test=wildcards.sample_test,
-                        vartype=var,
-                        sample=wildcards.sample,
-                        mode=wildcards.mode,
-                        fraction=fraction,
-                        regions=reg,
-                        qual="200",
-                        metric=metric,
-            method="pangenie"
-                    )
-            )
+            #         output.append("{results}/{sample}/{sample_test}/evaluation/{metric}/{mode}/{method}-genotyping-biallelic/coverage-{fraction}_{regions}_{vartype}/qual_{qual}/summary.txt".format(
+            #             results=wildcards.results,
+            #             sample_test=wildcards.sample_test,
+            #             vartype=var,
+            #             sample=wildcards.sample,
+            #             mode=wildcards.mode,
+            #             fraction=fraction,
+            #             regions=reg,
+            #             qual="200",
+            #             metric=metric,
+            # method="pangenie"
+            #         )
+            #)
             # output.append("{results}/{sample}/{sample_test}/evaluation/{metric}/{mode}/{method}-genotyping-biallelic/coverage-{fraction}_{regions}_{vartype}/qual_{qual}/summary.txt".format(
                     #     results=wildcards.results,
                     #     sample_test=wildcards.sample_test,

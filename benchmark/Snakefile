@@ -7,12 +7,10 @@ include: "genotyping.smk"
 
 # input data for genotyping
 
-samples=config['data']['samples']
-print(samples)
 # parameters
 chromosomes=config['parameters']['chromosomes']
 outname=config['parameters']['outname']
-outname_reads=config['parameters']['outname_reads']
+#outname_reads=config['parameters']['outname_reads']
 downsampling=[30,20,10,5]
 
 #variants=['snp', 'small-deletion', 'small-insertion', 'midsize-deletion', 'midsize-insertion', 'large-deletion', 'large-insertion']
@@ -22,7 +20,7 @@ rule all:
 #	       "results/HG00731/NA12878/evaluation/graphs.tar.gz",
 #	       "results/HG00731/ASSM-NA12878/evaluation/graphs.tar.gz",
 #	       "results/HG00731/pangenome/evaluation/graphs.tar.gz",
-	       "results/HG00731/meduim-NA12878-ASSM/evaluation/graphs.tar.gz",
+	       "results/HG00731/NA12878/evaluation/graphs.tar.gz",
 #	       "results/HG01891/meduim-NA12878-ASSM/evaluation/graphs.tar.gz"
 #	       "results/HG00512/meduim-NA12878-ASSM/evaluation/graphs.tar.gz",
 #
